@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=340">
+  <title>Hopper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Account bar: one chip per account, "+" chip last -->
+  <header class="bar">
+    <div id="chips" class="chips" role="toolbar" data-i18n-aria="extShortName"></div>
+  </header>
+
+  <main id="main">
+    <div id="banner" class="banner" hidden></div>
+
+    <!-- Selected account details -->
+    <section id="viewAccounts" hidden>
+      <div id="details"></div>
+    </section>
+
+    <!-- First run / upgrade: a master password is required -->
+    <section id="viewSetup" class="panel" hidden>
+      <h2 id="setupTitle"></h2>
+      <p id="setupBody"></p>
+      <form id="setupForm" autocomplete="off">
+        <label><span data-i18n="pwLabel"></span><input id="setupPw" type="password" minlength="8" autocomplete="off"></label>
+        <label><span data-i18n="pwConfirmLabel"></span><input id="setupPw2" type="password" minlength="8" autocomplete="off"></label>
+        <p class="note" data-i18n="pwForgotNote"></p>
+        <button type="submit" class="btn primary" data-i18n="pwSet"></button>
+      </form>
+    </section>
+
+    <!-- Locked -->
+    <section id="viewUnlock" class="panel" hidden>
+      <h2 data-i18n="unlockTitle"></h2>
+      <p data-i18n="unlockBody"></p>
+      <form id="unlockForm" autocomplete="off">
+        <label><span data-i18n="pwCurrentLabel"></span><input id="unlockPw" type="password" autocomplete="off"></label>
+        <button type="submit" class="btn primary" data-i18n="unlock"></button>
+      </form>
+    </section>
+
+    <!-- Settings -->
+    <section id="viewSettings" class="panel" hidden>
+      <h2 data-i18n="settings"></h2>
+      <h3 data-i18n="settingsPwTitle"></h3>
+      <p id="pwState" class="note"></p>
+      <form id="pwForm" autocomplete="off">
+        <label><span data-i18n="pwLabel"></span><input id="newPw" type="password" minlength="8" autocomplete="off"></label>
+        <label><span data-i18n="pwConfirmLabel"></span><input id="newPw2" type="password" minlength="8" autocomplete="off"></label>
+        <button type="submit" class="btn primary" id="pwSubmit" data-i18n="pwChange"></button>
+      </form>
+      <h3 data-i18n="autoLockLabel"></h3>
+      <select id="autoLock" data-i18n-aria="autoLockLabel">
+        <option value="15" data-i18n="autoLock15"></option>
+        <option value="60" data-i18n="autoLock60"></option>
+        <option value="240" data-i18n="autoLock240"></option>
+        <option value="0" data-i18n="autoLockNever"></option>
+      </select>
+      <p class="note" data-i18n="autoLockNote"></p>
+      <h3 data-i18n="deleteTitle"></h3>
+      <p class="note" data-i18n="deleteDesc"></p>
+      <button type="button" class="btn danger" id="deleteAll" data-i18n="deleteAll"></button>
+      <p class="note about" data-i18n="aboutText"></p>
+      <p class="note" id="version"></p>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <button type="button" id="settingsBtn" class="btn link" data-i18n="settings"></button>
+    <button type="button" id="lockBtn" class="btn link" data-i18n="lockNow" hidden></button>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+{
+  "extName": {
+    "message": "Hopper – Account Switcher (Unofficial)"
+  },
+  "extShortName": {
+    "message": "Hopper"
+  },
+  "extDescription": {
+    "message": "Switch between your own claude.ai accounts in one click. Unofficial — not affiliated with Anthropic."
+  },
+  "cmdOpen": {
+    "message": "Open the account switcher"
+  },
+  "cmdNext": {
+    "message": "Switch to the next account"
+  },
+  "cmdPrev": {
+    "message": "Switch to the previous account"
+  },
+  "addAccount": {
+    "message": "Add account"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "back": {
+    "message": "Back"
+  },
+  "lockNow": {
+    "message": "Lock"
+  },
+  "unlock": {
+    "message": "Unlock"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "update": {
+    "message": "Update"
+  },
+  "discard": {
+    "message": "Discard"
+  },
+  "dismiss": {
+    "message": "Dismiss"
+  },
+  "rename": {
+    "message": "Rename"
+  },
+  "color": {
+    "message": "Color"
+  },
+  "refreshSession": {
+    "message": "Refresh session"
+  },
+  "relogin": {
+    "message": "Sign in again"
+  },
+  "remove": {
+    "message": "Remove"
+  },
+  "emailUnknown": {
+    "message": "Email not detected"
+  },
+  "lastUsed": {
+    "message": "Last used: $WHEN$",
+    "placeholders": {
+      "when": {
+        "content": "$1"
+      }
+    }
+  },
+  "neverUsed": {
+    "message": "never"
+  },
+  "statusActive": {
+    "message": "Active"
+  },
+  "statusExpired": {
+    "message": "Session expired"
+  },
+  "noAccounts": {
+    "message": "No accounts yet. Sign in to claude.ai, then save it here — or tap + to add one."
+  },
+  "chipHint": {
+    "message": "Click to switch · Right-click for details"
+  },
+  "setupTitle": {
+    "message": "Protect your saved sessions"
+  },
+  "setupBody": {
+    "message": "Saved sessions work like passwords, so they are encrypted with a master password. You only enter it when the browser starts or after the idle time you choose."
+  },
+  "pwLabel": {
+    "message": "Master password (min. 8 characters)"
+  },
+  "pwConfirmLabel": {
+    "message": "Confirm password"
+  },
+  "pwSet": {
+    "message": "Set password"
+  },
+  "pwForgotNote": {
+    "message": "A forgotten password cannot be recovered. You would have to delete all data."
+  },
+  "unlockTitle": {
+    "message": "Locked"
+  },
+  "unlockBody": {
+    "message": "Enter your master password to use your accounts."
+  },
+  "pwCurrentLabel": {
+    "message": "Master password"
+  },
+  "bannerSaveTitle": {
+    "message": "Save this account?"
+  },
+  "bannerSaveBody": {
+    "message": "$EMAIL$ is signed in on claude.ai.",
+    "placeholders": {
+      "email": {
+        "content": "$1"
+      }
+    }
+  },
+  "bannerSaveBodyNoEmail": {
+    "message": "You're signed in on claude.ai."
+  },
+  "bannerUpdateTitle": {
+    "message": "Update saved account?"
+  },
+  "bannerUpdateBody": {
+    "message": "This matches “$NAME$”. Update its saved session?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "bannerWaitTitle": {
+    "message": "Waiting for sign-in…"
+  },
+  "bannerWaitBody": {
+    "message": "Sign in on the claude.ai tab. You'll be asked to save the account."
+  },
+  "confirmRemove": {
+    "message": "Remove “$NAME$” and its saved session from this extension?",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirmUnsaved": {
+    "message": "You're signed in with an account that isn't saved. Adding another account will sign you out of it. Continue?"
+  },
+  "confirmDeleteAll": {
+    "message": "Delete all saved accounts and settings from this extension? This cannot be undone."
+  },
+  "settingsPwTitle": {
+    "message": "Master password"
+  },
+  "pwStateSet": {
+    "message": "Enabled — sessions are encrypted with your password."
+  },
+  "pwChange": {
+    "message": "Change password"
+  },
+  "deleteTitle": {
+    "message": "Delete all data"
+  },
+  "deleteDesc": {
+    "message": "Removes every saved account and setting from this browser. You stay signed in on claude.ai."
+  },
+  "deleteAll": {
+    "message": "Delete all data"
+  },
+  "aboutText": {
+    "message": "Unofficial. Not affiliated with Anthropic. Use only with your own accounts — not for sharing accounts or bypassing usage limits."
+  },
+  "toastSwitched": {
+    "message": "Switched to $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "toastSaved": {
+    "message": "Account saved"
+  },
+  "toastUpdated": {
+    "message": "Session updated"
+  },
+  "toastRemoved": {
+    "message": "Account removed"
+  },
+  "toastDeleted": {
+    "message": "All data deleted"
+  },
+  "toastPwSet": {
+    "message": "Password saved"
+  },
+  "toastLocked": {
+    "message": "Locked"
+  },
+  "defaultAccountName": {
+    "message": "Account $N$",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "err_LOCKED": {
+    "message": "Unlock with your master password first."
+  },
+  "err_NOT_SETUP": {
+    "message": "Finish the setup first."
+  },
+  "err_NOT_FOUND": {
+    "message": "Account not found."
+  },
+  "err_EXPIRED": {
+    "message": "This session expired. Use “Sign in again”."
+  },
+  "err_SWITCH_FAILED": {
+    "message": "Switch failed. Your previous session was restored."
+  },
+  "err_NOT_LOGGED_IN": {
+    "message": "You're not signed in on claude.ai."
+  },
+  "err_BAD_PASSWORD": {
+    "message": "Wrong password."
+  },
+  "err_WEAK_PASSWORD": {
+    "message": "Use at least 8 characters."
+  },
+  "err_PW_MISMATCH": {
+    "message": "Passwords don't match."
+  },
+  "err_MISMATCH": {
+    "message": "The signed-in account differs from this one."
+  },
+  "err_CORRUPT": {
+    "message": "Saved data couldn't be decrypted."
+  },
+  "err_GENERIC": {
+    "message": "Something went wrong."
+  },
+  "upgradeTitle": {
+    "message": "Security upgrade"
+  },
+  "upgradeBody": {
+    "message": "A master password is now required. Your saved accounts are kept and re-encrypted — nothing is lost."
+  },
+  "autoLockLabel": {
+    "message": "Auto-lock when idle"
+  },
+  "autoLock15": {
+    "message": "After 15 minutes"
+  },
+  "autoLock60": {
+    "message": "After 1 hour"
+  },
+  "autoLock240": {
+    "message": "After 4 hours (default)"
+  },
+  "autoLockNever": {
+    "message": "Until the browser closes"
+  },
+  "autoLockNote": {
+    "message": "Opening the popup, switching or using a shortcut keeps it unlocked, so you are not asked again while you use it."
+  },
+  "err_TOO_MANY": {
+    "message": "Too many attempts. Wait a moment and try again."
+  }
+}

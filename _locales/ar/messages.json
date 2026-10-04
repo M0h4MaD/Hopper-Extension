@@ -1,0 +1,281 @@
+{
+  "extName": {
+    "message": "Hopper – مبدّل الحسابات (غير رسمي)"
+  },
+  "extShortName": {
+    "message": "Hopper"
+  },
+  "extDescription": {
+    "message": "بدّل بين حساباتك الخاصة على claude.ai بنقرة واحدة. غير رسمي — لا علاقة له بشركة Anthropic."
+  },
+  "cmdOpen": {
+    "message": "فتح مبدّل الحسابات"
+  },
+  "cmdNext": {
+    "message": "التبديل إلى الحساب التالي"
+  },
+  "cmdPrev": {
+    "message": "التبديل إلى الحساب السابق"
+  },
+  "addAccount": {
+    "message": "إضافة حساب"
+  },
+  "settings": {
+    "message": "الإعدادات"
+  },
+  "back": {
+    "message": "رجوع"
+  },
+  "lockNow": {
+    "message": "قفل"
+  },
+  "unlock": {
+    "message": "فتح القفل"
+  },
+  "cancel": {
+    "message": "إلغاء"
+  },
+  "save": {
+    "message": "حفظ"
+  },
+  "update": {
+    "message": "تحديث"
+  },
+  "discard": {
+    "message": "تجاهل"
+  },
+  "dismiss": {
+    "message": "إخفاء"
+  },
+  "rename": {
+    "message": "إعادة تسمية"
+  },
+  "color": {
+    "message": "اللون"
+  },
+  "refreshSession": {
+    "message": "تحديث الجلسة"
+  },
+  "relogin": {
+    "message": "تسجيل الدخول مجددًا"
+  },
+  "remove": {
+    "message": "حذف"
+  },
+  "emailUnknown": {
+    "message": "لم يتم اكتشاف البريد"
+  },
+  "lastUsed": {
+    "message": "آخر استخدام: $WHEN$",
+    "placeholders": {
+      "when": {
+        "content": "$1"
+      }
+    }
+  },
+  "neverUsed": {
+    "message": "لم يُستخدم بعد"
+  },
+  "statusActive": {
+    "message": "نشط"
+  },
+  "statusExpired": {
+    "message": "انتهت الجلسة"
+  },
+  "noAccounts": {
+    "message": "لا توجد حسابات بعد. سجّل الدخول إلى claude.ai ثم احفظه هنا، أو اضغط + لإضافة حساب."
+  },
+  "chipHint": {
+    "message": "انقر للتبديل · انقر بالزر الأيمن للتفاصيل"
+  },
+  "setupTitle": {
+    "message": "احمِ جلساتك المحفوظة"
+  },
+  "setupBody": {
+    "message": "الجلسات المحفوظة تعمل مثل كلمات المرور، لذلك تُشفَّر بكلمة مرور رئيسية. تُدخلها فقط عند تشغيل المتصفح أو بعد مدة الخمول التي تختارها."
+  },
+  "pwLabel": {
+    "message": "كلمة المرور الرئيسية (8 أحرف على الأقل)"
+  },
+  "pwConfirmLabel": {
+    "message": "تأكيد كلمة المرور"
+  },
+  "pwSet": {
+    "message": "تعيين كلمة المرور"
+  },
+  "pwForgotNote": {
+    "message": "لا يمكن استرجاع كلمة المرور إن نُسيت، وستضطر إلى حذف كل البيانات."
+  },
+  "unlockTitle": {
+    "message": "مقفل"
+  },
+  "unlockBody": {
+    "message": "أدخل كلمة المرور الرئيسية لاستخدام حساباتك."
+  },
+  "pwCurrentLabel": {
+    "message": "كلمة المرور الرئيسية"
+  },
+  "bannerSaveTitle": {
+    "message": "حفظ هذا الحساب؟"
+  },
+  "bannerSaveBody": {
+    "message": "الحساب $EMAIL$ مسجّل دخوله على claude.ai.",
+    "placeholders": {
+      "email": {
+        "content": "$1"
+      }
+    }
+  },
+  "bannerSaveBodyNoEmail": {
+    "message": "أنت مسجّل الدخول على claude.ai."
+  },
+  "bannerUpdateTitle": {
+    "message": "تحديث الحساب المحفوظ؟"
+  },
+  "bannerUpdateBody": {
+    "message": "يطابق هذا الحساب «$NAME$». هل تريد تحديث جلسته المحفوظة؟",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "bannerWaitTitle": {
+    "message": "بانتظار تسجيل الدخول…"
+  },
+  "bannerWaitBody": {
+    "message": "سجّل الدخول في تبويب claude.ai وسأسألك عن حفظ الحساب."
+  },
+  "confirmRemove": {
+    "message": "هل تريد حذف «$NAME$» وجلسته المحفوظة من هذه الإضافة؟",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "confirmUnsaved": {
+    "message": "أنت مسجّل بحساب غير محفوظ. إضافة حساب جديد ستُخرجك منه. هل تريد المتابعة؟"
+  },
+  "confirmDeleteAll": {
+    "message": "حذف جميع الحسابات والإعدادات المحفوظة من هذه الإضافة؟ لا يمكن التراجع."
+  },
+  "settingsPwTitle": {
+    "message": "كلمة المرور الرئيسية"
+  },
+  "pwStateSet": {
+    "message": "مفعّلة — الجلسات مشفّرة بكلمة مرورك."
+  },
+  "pwChange": {
+    "message": "تغيير كلمة المرور"
+  },
+  "deleteTitle": {
+    "message": "حذف كل البيانات"
+  },
+  "deleteDesc": {
+    "message": "يزيل كل حساب وإعداد محفوظ من هذا المتصفح. تبقى مسجّل الدخول على claude.ai."
+  },
+  "deleteAll": {
+    "message": "حذف كل البيانات"
+  },
+  "aboutText": {
+    "message": "غير رسمي ولا علاقة له بشركة Anthropic. استخدمه مع حساباتك الخاصة فقط، وليس لمشاركة الحسابات أو تجاوز حدود الاستخدام."
+  },
+  "toastSwitched": {
+    "message": "تم التبديل إلى $NAME$",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "toastSaved": {
+    "message": "تم حفظ الحساب"
+  },
+  "toastUpdated": {
+    "message": "تم تحديث الجلسة"
+  },
+  "toastRemoved": {
+    "message": "تم حذف الحساب"
+  },
+  "toastDeleted": {
+    "message": "تم حذف كل البيانات"
+  },
+  "toastPwSet": {
+    "message": "تم حفظ كلمة المرور"
+  },
+  "toastLocked": {
+    "message": "تم القفل"
+  },
+  "defaultAccountName": {
+    "message": "حساب $N$",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
+  },
+  "err_LOCKED": {
+    "message": "افتح القفل بكلمة المرور الرئيسية أولًا."
+  },
+  "err_NOT_SETUP": {
+    "message": "أكمل الإعداد أولًا."
+  },
+  "err_NOT_FOUND": {
+    "message": "الحساب غير موجود."
+  },
+  "err_EXPIRED": {
+    "message": "انتهت هذه الجلسة. استخدم «تسجيل الدخول مجددًا»."
+  },
+  "err_SWITCH_FAILED": {
+    "message": "فشل التبديل. تمت استعادة جلستك السابقة."
+  },
+  "err_NOT_LOGGED_IN": {
+    "message": "لم تسجّل الدخول على claude.ai."
+  },
+  "err_BAD_PASSWORD": {
+    "message": "كلمة المرور غير صحيحة."
+  },
+  "err_WEAK_PASSWORD": {
+    "message": "استخدم 8 أحرف على الأقل."
+  },
+  "err_PW_MISMATCH": {
+    "message": "كلمتا المرور غير متطابقتين."
+  },
+  "err_MISMATCH": {
+    "message": "الحساب المسجّل دخوله يختلف عن هذا الحساب."
+  },
+  "err_CORRUPT": {
+    "message": "تعذّر فك تشفير البيانات المحفوظة."
+  },
+  "err_GENERIC": {
+    "message": "حدث خطأ ما."
+  },
+  "upgradeTitle": {
+    "message": "تحديث أمني"
+  },
+  "upgradeBody": {
+    "message": "أصبحت كلمة المرور الرئيسية مطلوبة. حساباتك المحفوظة تبقى كما هي وتُعاد تشفيرها دون فقدان أي شيء."
+  },
+  "autoLockLabel": {
+    "message": "القفل التلقائي عند الخمول"
+  },
+  "autoLock15": {
+    "message": "بعد 15 دقيقة"
+  },
+  "autoLock60": {
+    "message": "بعد ساعة"
+  },
+  "autoLock240": {
+    "message": "بعد 4 ساعات (الافتراضي)"
+  },
+  "autoLockNever": {
+    "message": "حتى إغلاق المتصفح"
+  },
+  "autoLockNote": {
+    "message": "فتح النافذة أو التبديل أو استخدام الاختصار يُبقيها مفتوحة، فلن تُسأل مجددًا أثناء استخدامها."
+  },
+  "err_TOO_MANY": {
+    "message": "محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة."
+  }
+}
