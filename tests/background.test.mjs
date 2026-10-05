@@ -51,7 +51,8 @@ const login = (tok) => { jar = [
   { name: 'sid', value: tok, domain: '.claude.ai', hostOnly: false, path: '/', secure: true, httpOnly: true, sameSite: 'lax', session: false, expirationDate: Date.now() / 1000 + 86400 },
   { name: '__Host-x', value: 'hx-' + tok, domain: 'claude.ai', hostOnly: true, path: '/', secure: true, httpOnly: false, sameSite: 'strict', session: true } ]; };
 const live = () => jar.find((c) => c.name === 'sid')?.value;
-let n = 0; const pass = (m) => console.log(`ok ${++n} - ${m}`);
+let n = 0; const sleep = (ms) => new Promise((r) => realST(r, ms));
+const pass = (m) => console.log(`ok ${++n} - ${m}`);
 
 /* 1. setup */
 assert.equal((await ok('status')).setupDone, false);
@@ -89,6 +90,18 @@ login('TOKA'); const dup = await ok('saveCurrent'); assert.equal(dup.updated, tr
 await ok('rename', { id: A, name: 'Work' }); st = await ok('status'); assert.equal(st.accounts.find((a) => a.id === A).name, 'Work');
 assert.ok(!JSON.stringify([...local.m]).includes('Work')); pass('rename works and stays encrypted');
 
+/* 5b. one-click "Sign in again" for an existing account */
+accounts.TOKA2 = { email_address: 'alice@example.com', full_name: 'Alice' };
+await ok('startAdd', { reloginId: A });
+let stp = await ok('status'); assert.equal(stp.pending.reloginId, A); assert.equal(stp.pending.phase, 'login');
+login('TOKA2'); tabHandler(7, { status: 'complete' }, { url: 'https://claude.ai/new' }); await sleep(80);
+stp = await ok('status'); assert.equal(stp.pending, null); assert.equal(stp.activeId, A); assert.equal(stp.accounts.length, 2);
+await ok('switch', { id: B }); await ok('switch', { id: A }); assert.equal(live(), 'TOKA2'); pass('re-login updates the same account automatically (no extra prompt)');
+assert.equal(await err('startAdd', { reloginId: 'nope' }), 'NOT_FOUND');
+await ok('startAdd', { reloginId: A }); login('TOKB'); tabHandler(7, { status: 'complete' }, { url: 'https://claude.ai/new' }); await sleep(80);
+stp = await ok('status'); assert.equal(stp.pending.phase, 'ready'); assert.equal(stp.pending.matchId, B);
+await ok('cancelAdd'); assert.equal(live(), 'TOKA2'); pass('signing in as a different account during re-login is NOT auto-saved');
+
 /* 6. auto-lock + throttle */
 await ok('setAutoLock', { minutes: 15 });
 session.m.set('vkAt', Date.now() - 16 * 60000);
@@ -124,6 +137,29 @@ await ok('setPassword', { password: 'upgrade pass 1' }); st = await ok('status')
 assert.equal(st.needsUpgrade, false); assert.equal(st.accounts[0].name, 'Old Alice');
 assert.ok(!JSON.stringify([...local.m]).includes('Old Alice')); assert.equal(local.m.get('state').accounts[0].blob.v, 2);
 jar = []; await ok('switch', { id: lid }); assert.equal(live(), 'TOKA'); pass('legacy data upgraded, re-encrypted, still works');
+
+/* 9b. long idle windows: 1 day, 3 days, 1 week */
+for (const m of [1440, 4320, 10080]) {
+  await ok('setAutoLock', { minutes: m });
+  session.m.set('vkAt', Date.now() - (m - 60) * 60000); assert.equal((await ok('status')).locked, false);
+  session.m.set('vkAt', Date.now() - (m + 60) * 60000); assert.equal((await ok('status')).locked, true);
+  await ok('unlock', { password: 'upgrade pass 1' });
+}
+assert.equal(await err('setAutoLock', { minutes: 999 }), 'GENERIC'); pass('1 day / 3 days / 1 week windows lock only after their own limit; invalid values rejected');
+
+/* 9c. optional: stay unlocked across browser restarts */
+await ok('setAutoLock', { minutes: 1440 });
+await ok('setRemember', { enabled: true });
+assert.ok(local.m.has('remember')); assert.ok(!JSON.stringify([...local.m]).includes(session.m.get('vk')), 'raw key must not be stored in the clear');
+session.m.clear();                                                // simulate quitting and restarting the browser
+st = await ok('status'); assert.equal(st.locked, false); assert.ok(st.accounts.length > 0); assert.equal(st.remember, true); pass('remembered key survives a browser restart');
+session.m.clear(); const rem = local.m.get('remember'); rem.lastActive = Date.now() - 25 * 3600 * 1000; local.m.set('remember', rem);
+st = await ok('status'); assert.equal(st.locked, true); assert.ok(!local.m.has('remember')); pass('remembered key expires after the idle window (even across restarts)');
+await ok('unlock', { password: 'upgrade pass 1' }); assert.ok(local.m.has('remember'));
+await ok('lock'); assert.ok(!local.m.has('remember')); assert.equal((await ok('status')).locked, true); pass('manual lock clears the remembered key');
+await ok('unlock', { password: 'upgrade pass 1' }); assert.equal(await err('setAutoLock', { minutes: 0 }), 'GENERIC'); pass('"until browser closes" is rejected while remembering');
+await ok('setRemember', { enabled: false }); assert.ok(!local.m.has('remember')); session.m.clear();
+assert.equal((await ok('status')).locked, true); await ok('unlock', { password: 'upgrade pass 1' }); pass('turning remember off requires the password after restart');
 
 /* 10. delete all, and no sync usage */
 await ok('deleteAll'); assert.equal(local.m.size, 0); assert.equal(session.m.size, 0); assert.equal((await ok('status')).setupDone, false); pass('delete all data');

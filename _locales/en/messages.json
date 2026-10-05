@@ -273,9 +273,41 @@
     "message": "Until the browser closes"
   },
   "autoLockNote": {
-    "message": "Opening the popup, switching or using a shortcut keeps it unlocked, so you are not asked again while you use it."
+    "message": "Opening the popup, switching or using a shortcut keeps it unlocked. Quitting the browser completely locks it again, unless “Stay unlocked” below is on."
   },
   "err_TOO_MANY": {
     "message": "Too many attempts. Wait a moment and try again."
+  },
+  "autoLock1d": {
+    "message": "After 1 day"
+  },
+  "autoLock3d": {
+    "message": "After 3 days"
+  },
+  "autoLock7d": {
+    "message": "After 1 week"
+  },
+  "rememberLabel": {
+    "message": "Stay unlocked after restarting the browser"
+  },
+  "rememberNote": {
+    "message": "Convenient but weaker: the unlock key is kept on this device, protected only by a device key. Anyone who copies your browser profile could open your accounts without the password until the idle time above runs out."
+  },
+  "confirmRemember": {
+    "message": "Turn this on? Your unlock key will be stored on this device, protected only by a device key. Auto-lock still applies (at most 1 week of inactivity)."
+  },
+  "toastRememberOn": {
+    "message": "Will stay unlocked after restart"
+  },
+  "toastRememberOff": {
+    "message": "Password required after restart"
+  },
+  "bannerReloginBody": {
+    "message": "Sign in on the claude.ai tab as “$NAME$”. It will be updated automatically.",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -95,3 +95,8 @@ input[type=text], input[type=password], select {
 }
 .toast.show { opacity: 1; }
 .toast.error { background: var(--danger); color: #fff; }
+
+/* checkbox row */
+label.check { display: flex; gap: 8px; align-items: flex-start; margin-block-start: 12px; }
+label.check span { display: inline; margin: 0; color: var(--fg); font-size: 13px; }
+label.check input { margin-block-start: 3px; }

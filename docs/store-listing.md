@@ -13,6 +13,7 @@ Hopper lets you keep several of YOUR OWN claude.ai accounts (personal, work, tea
 • Click = instant switch and automatic tab reload
 • "+" adds an account; Hopper asks "Save this account?" once you've signed in
 • Rename, recolor, refresh session, remove
+• Session expired? One click on "Sign in again" and the account updates itself
 • Shortcuts: Alt+Shift+A (open), Alt+Shift+Right/Left (cycle)
 • Arabic (RTL) and English; automatic light/dark
 • Master password + auto-lock: sessions and account labels are encrypted with AES-GCM
@@ -31,6 +32,7 @@ Unofficial. Not affiliated with, endorsed by, or sponsored by Anthropic. Use onl
 • النقر = تبديل فوري وإعادة تحميل التبويب تلقائيًا
 • زر «+» لإضافة حساب، ثم سؤال «حفظ هذا الحساب؟» بعد تسجيل الدخول
 • إعادة تسمية وتغيير لون وتحديث الجلسة وحذف
+• انتهت الجلسة؟ نقرة على «تسجيل الدخول مجددًا» ويُحدَّث الحساب تلقائيًا
 • اختصارات: Alt+Shift+A للفتح، وAlt+Shift+Right/Left للتنقل
 • عربي (RTL) وإنجليزي، ووضع فاتح/داكن تلقائي
 • كلمة مرور رئيسية وقفل تلقائي لتشفير الجلسات والبيانات بـ AES-GCM

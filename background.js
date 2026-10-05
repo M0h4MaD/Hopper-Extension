@@ -11,8 +11,9 @@
  *  - Everything is stored in chrome.storage.local (never .sync).
  *  - Cookies AND account labels (name/email/...) are encrypted; each record is
  *    bound to its account id with AES-GCM additional authenticated data.
- *  - A master password is mandatory. The unlocked key lives only in
- *    chrome.storage.session (memory) and expires after the idle time.
+ *  - A master password is mandatory. The unlocked key lives in chrome.storage.session
+ *    (memory) and expires after the idle time. Only if the user opts in to "stay unlocked
+ *    after restart" is a device-key-wrapped copy kept on disk (still expiring after the idle time).
  */
 
 import {
@@ -23,10 +24,11 @@ import {
 const ORIGIN = 'https://claude.ai';
 const HOST = 'claude.ai';
 const STATE_KEY = 'state';
+const REMEMBER_KEY = 'remember';   // optional: unlock key wrapped by the device key (see "Stay unlocked after restart")
 const MIN_PASSWORD = 8;
 const MAX_ACCOUNTS = 20;
 const AUTOLOCK_DEFAULT = 240;                 // minutes of inactivity
-const AUTOLOCK_CHOICES = [15, 60, 240, 0];    // 0 = until the browser closes
+const AUTOLOCK_CHOICES = [15, 60, 240, 1440, 4320, 10080, 0];   // minutes; 1 day / 3 days / 1 week; 0 = until the browser closes
 const PALETTE = ['#4f46e5', '#0891b2', '#0d9488', '#16a34a', '#ca8a04', '#ea580c', '#db2777', '#9333ea'];
 
 class AppError extends Error {
@@ -79,20 +81,50 @@ function ensureReady(state) {
 
 const autoLockMin = (state) => (state.settings && state.settings.autoLockMin !== undefined ? state.settings.autoLockMin : AUTOLOCK_DEFAULT);
 
+/** Optional persistence: the raw unlock key, wrapped with the non-extractable device key. */
+async function writeRemember(rawKeyB64, ts) {
+  const wrapped = await encryptJSON(await getDeviceKey(), rawKeyB64, 'remember');
+  await chrome.storage.local.set({ [REMEMBER_KEY]: { wrapped, lastActive: ts } });
+}
+async function touchRemember(ts) {
+  const rem = (await chrome.storage.local.get(REMEMBER_KEY))[REMEMBER_KEY];
+  if (rem) { rem.lastActive = ts; await chrome.storage.local.set({ [REMEMBER_KEY]: rem }); }
+}
+const dropRemember = () => chrome.storage.local.remove(REMEMBER_KEY);
+
 /**
  * Returns the AES key, or throws LOCKED. With `touch` the idle timer restarts
  * (sliding window), so normal use never asks for the password again.
+ * If "stay unlocked after restart" is on and the browser was restarted, the key is
+ * restored from the wrapped copy, but only while the idle window has not elapsed.
  */
 async function getKey(state, { touch = true } = {}) {
   if (state.vault.mode === 'none') return getDeviceKey();   // legacy, only used by the upgrade path
-  const { vk, vkAt } = await chrome.storage.session.get(['vk', 'vkAt']);
-  if (!vk) throw new AppError('LOCKED');
+  const remember = !!(state.settings && state.settings.remember);
   const limit = autoLockMin(state) * 60000;
+  let { vk, vkAt } = await chrome.storage.session.get(['vk', 'vkAt']);
+
+  if (!vk && remember) {
+    const rem = (await chrome.storage.local.get(REMEMBER_KEY))[REMEMBER_KEY];
+    if (rem) {
+      if (limit && Date.now() - (rem.lastActive || 0) > limit) { await dropRemember(); throw new AppError('LOCKED'); }
+      try { vk = await decryptJSON(await getDeviceKey(), rem.wrapped, 'remember'); }
+      catch { await dropRemember(); throw new AppError('LOCKED'); }
+      vkAt = rem.lastActive;
+      await chrome.storage.session.set({ vk, vkAt });
+    }
+  }
+  if (!vk) throw new AppError('LOCKED');
   if (limit && Date.now() - (vkAt || 0) > limit) {
     await chrome.storage.session.remove(['vk', 'vkAt']);
+    await dropRemember();
     throw new AppError('LOCKED');
   }
-  if (touch) await chrome.storage.session.set({ vkAt: Date.now() });
+  if (touch) {
+    const now = Date.now();
+    await chrome.storage.session.set({ vkAt: now });
+    if (remember) await touchRemember(now);
+  }
   return importRaw(vk);
 }
 
@@ -301,7 +333,12 @@ async function makePasswordVault(password) {
   };
 }
 
-const unlockSession = async (key) => chrome.storage.session.set({ vk: await exportRaw(key), vkAt: Date.now() });
+async function unlockSession(key, state) {
+  const raw = await exportRaw(key);
+  const now = Date.now();
+  await chrome.storage.session.set({ vk: raw, vkAt: now });
+  if (state.settings && state.settings.remember) await writeRemember(raw, now);
+}
 
 /** First run: a master password is required. */
 async function opSetup({ password }) {
@@ -312,7 +349,7 @@ async function opSetup({ password }) {
   state.setupDone = true;
   state.settings = { autoLockMin: AUTOLOCK_DEFAULT };
   await saveRaw(state);
-  await unlockSession(key);
+  await unlockSession(key, state);
   await updateBadge();
 }
 
@@ -340,10 +377,13 @@ async function opUnlock({ password }) {
     throw new AppError('BAD_PASSWORD');
   }
   await chrome.storage.session.remove('unlockFail');
-  await unlockSession(key);
+  await unlockSession(key, state);
 }
 
-const opLock = () => chrome.storage.session.remove(['vk', 'vkAt']);
+async function opLock() {
+  await chrome.storage.session.remove(['vk', 'vkAt']);
+  await dropRemember();            // a manual lock always means "ask for the password next time"
+}
 
 /**
  * Set or change the master password and re-encrypt everything (cookies + labels).
@@ -366,7 +406,7 @@ async function opSetPassword({ password }) {
   state.v = 2;
   state.settings = { autoLockMin: AUTOLOCK_DEFAULT, ...(state.settings || {}) };
   await persist(state, newKey);     // single write: old data stays valid until this succeeds
-  await unlockSession(newKey);
+  await unlockSession(newKey, state);
   await updateBadge();
 }
 
@@ -374,8 +414,31 @@ async function opSetAutoLock({ minutes }) {
   if (!AUTOLOCK_CHOICES.includes(minutes)) throw new AppError('GENERIC');
   const state = await loadState();
   ensureReady(state);
+  if (minutes === 0 && state.settings && state.settings.remember) throw new AppError('GENERIC'); // "until browser closes" is meaningless while remembering
   state.settings = { ...(state.settings || {}), autoLockMin: minutes };
   await saveRaw(state);             // labels/blobs stay encrypted as stored
+}
+
+/**
+ * Opt-in convenience: keep the session unlocked across browser restarts.
+ * The unlock key is stored wrapped by the device key, so it is only as protected as the
+ * browser profile itself. It still expires after the idle window (never "forever").
+ */
+async function opSetRemember({ enabled }) {
+  const state = await loadState();
+  ensureReady(state);
+  const key = await getKey(state);                 // must be unlocked right now
+  state.settings = { ...(state.settings || {}) };
+  if (enabled) {
+    state.settings.remember = true;
+    if (state.settings.autoLockMin === 0) state.settings.autoLockMin = 10080;
+    await saveRaw(state);
+    await writeRemember(await exportRaw(key), Date.now());
+  } else {
+    state.settings.remember = false;
+    await saveRaw(state);
+    await dropRemember();
+  }
 }
 
 async function opDeleteAll() {
@@ -392,7 +455,7 @@ async function opStatus() {
   const needsUpgrade = state.setupDone && state.vault.mode !== 'password';
   const base = {
     setupDone: state.setupDone, needsUpgrade, locked: false, accounts: [], activeId: null,
-    pending: null, palette: PALETTE, autoLockMin: autoLockMin(state), version: chrome.runtime.getManifest().version,
+    pending: null, palette: PALETTE, autoLockMin: autoLockMin(state), remember: !!(state.settings && state.settings.remember), version: chrome.runtime.getManifest().version,
   };
   if (!state.setupDone || needsUpgrade) return base;
 
@@ -405,7 +468,7 @@ async function opStatus() {
   if (pending) {
     const match = pending.identity ? findMatch(state, pending.identity.email, pending.identity.sfp) : null;
     p = {
-      phase: pending.phase, previousId: pending.previousId || null, matchId: match ? match.id : null,
+      phase: pending.phase, previousId: pending.previousId || null, reloginId: pending.reloginId || null, matchId: match ? match.id : null,
       identity: pending.identity ? { email: pending.identity.email || null, name: pending.identity.name || null } : null,
     };
   }
@@ -567,9 +630,15 @@ async function opDetect() {
 
 /* --------------------------- add-account flow ----------------------- */
 
-async function opStartAdd() {
+async function opStartAdd(m = {}) {
   const { state, key } = await openState();
-  if (state.accounts.length >= MAX_ACCOUNTS) throw new AppError('GENERIC');
+  // reloginId: one-click "Sign in again" for an existing (expired) account; it is updated automatically afterwards.
+  const reloginId = m && m.reloginId ? String(m.reloginId) : null;
+  if (reloginId) {
+    if (!state.accounts.some((a) => a.id === reloginId)) throw new AppError('NOT_FOUND');
+  } else if (state.accounts.length >= MAX_ACCOUNTS) {
+    throw new AppError('GENERIC');
+  }
 
   // Keep the current account's tokens fresh, then sign out of the browser session.
   const live = await readLiveCookies();
@@ -587,7 +656,7 @@ async function opStartAdd() {
   if (cur && cur.url && originOf(cur.url) === ORIGIN) tab = await chrome.tabs.update(cur.id, { url: ORIGIN + '/login', active: true });
   else tab = await chrome.tabs.create({ url: ORIGIN + '/login', active: true });
 
-  await setPending({ phase: 'login', tabId: tab.id, previousId, startedAt: Date.now() });
+  await setPending({ phase: 'login', tabId: tab.id, previousId, reloginId, startedAt: Date.now() });
   await updateBadge();
 }
 
@@ -610,6 +679,34 @@ async function onTabComplete(url) {
   const sfp = await sessionFingerprint((await readLiveCookies()).map(serialize));
   await setPending({ ...pending, phase: 'ready', identity: { email: probe.email, name: probe.name, sfp } });
   await updateBadge();
+  if (pending.reloginId) await serial(opAutoRelogin).catch(() => {});
+}
+
+/**
+ * Finish a "Sign in again" flow without asking: the user explicitly started it for this account.
+ * If they signed in as a different account, leave the normal "Save this account?" banner instead.
+ */
+async function opAutoRelogin() {
+  const pending = await getPending();
+  if (!pending || pending.phase !== 'ready' || !pending.reloginId) return;
+  let opened;
+  try { opened = await openState(); } catch { return; }   // locked meanwhile: the banner will handle it
+  const { state, key } = opened;
+  const acc = state.accounts.find((a) => a.id === pending.reloginId);
+  const idn = pending.identity || {};
+  if (!acc || (acc.email && idn.email && !sameEmail(acc.email, idn.email))) return;
+  const live = (await readLiveCookies()).map(serialize);
+  if (!live.length) return;
+  acc.blob = await encCookies(key, acc.id, live);
+  acc.sfp = idn.sfp || (await sessionFingerprint(live));
+  acc.status = 'ok';
+  acc.lastUsed = Date.now();
+  if (idn.email) acc.email = idn.email;
+  state.activeId = acc.id;
+  await persist(state, key);
+  await setPending(null);
+  await updateBadge();
+  flashBadge(Array.from(acc.name.trim())[0]?.toUpperCase() || '?', acc.color);
 }
 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
@@ -671,10 +768,11 @@ const HANDLERS = {
   lock: () => serial(opLock),
   setPassword: (m) => serial(() => opSetPassword(m)),
   setAutoLock: (m) => serial(() => opSetAutoLock(m)),
+  setRemember: (m) => serial(() => opSetRemember(m)),
   deleteAll: () => serial(opDeleteAll),
   detect: () => serial(opDetect),
   saveCurrent: () => serial(opSaveCurrent),
-  startAdd: () => serial(opStartAdd),
+  startAdd: (m) => serial(() => opStartAdd(m)),
   cancelAdd: () => serial(opCancelAdd),
   switch: (m) => serial(() => opSwitch(String(m.id))),
   refreshActive: () => serial(opRefreshActive),

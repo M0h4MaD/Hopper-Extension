@@ -2,19 +2,19 @@
 
 ## Before packaging
 - [ ] Test on a clean Chrome profile with 2 real accounts: save, switch, cycle (Alt+Shift+Right/Left), expired session, wrong/forgotten password, Delete all data.
-- [ ] Run `node tests/background.test.mjs` (17 checks) — see README for the import path note.
+- [ ] Run `node tests/background.test.mjs` (25 checks) — see README for the import path note.
 - [ ] Upgrade test: load v1.0, save accounts, then load this version over it; set the password; accounts must survive.
 - [ ] Test in Arabic UI (chrome://settings/languages) and English; light and dark.
 - [ ] Verify `chrome://extensions` shows no errors for the service worker and popup.
 - [ ] No console output contains cookie values. No `storage.sync`, no `<all_urls>`, no remote scripts.
-- [ ] Bump `version` in manifest.json (now 1.1.0); update CHANGELOG.md.
+- [ ] Bump `version` in manifest.json (now 1.2.0); update CHANGELOG.md.
 - [ ] Permissions are only `cookies`, `storage` and host `https://claude.ai/*`.
 - [ ] Confirm branding: no Claude/Anthropic logo, neutral name, "Unofficial" in description.
 
 ## Package
 ```
 cd hopper
-zip -r ../hopper-1.1.0.zip manifest.json background.js crypto-vault.js popup.html popup.css popup.js _locales icons
+zip -r ../hopper-1.2.0.zip manifest.json background.js crypto-vault.js popup.html popup.css popup.js _locales icons
 ```
 `manifest.json` must be at the zip root. Don't include `docs/`, `tools/`, `.git`, or README files.
 

@@ -122,7 +122,8 @@ function renderBanner(on) {
   let node = null;
 
   if (p && p.phase === 'login') {
-    node = [h('strong', {}, t('bannerWaitTitle')), h('p', {}, t('bannerWaitBody')),
+    const target = p.reloginId && S.accounts.find((a) => a.id === p.reloginId);
+    node = [h('strong', {}, t('bannerWaitTitle')), h('p', {}, target ? t('bannerReloginBody', target.name) : t('bannerWaitBody')),
       h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: onCancelAdd }, t('cancel')))];
   } else if (p && p.phase === 'ready') {
     node = saveBanner(p.identity && p.identity.email, p.matchId, h('button', { class: 'btn', type: 'button', onclick: onCancelAdd }, t('discard')));
@@ -179,7 +180,7 @@ function renderDetails() {
   card.append(h('div', { class: 'actions' },
     h('button', { class: 'btn', type: 'button', onclick: () => { renaming = !renaming; paletteOpen = false; render(); } }, t('rename')),
     h('button', { class: 'btn', type: 'button', onclick: () => { paletteOpen = !paletteOpen; renaming = false; render(); } }, t('color')),
-    h('button', { class: 'btn', type: 'button', onclick: () => (needsLogin ? onAdd() : onRefreshActive()) }, needsLogin ? t('relogin') : t('refreshSession')),
+    h('button', { class: 'btn' + (expired ? ' primary' : ''), type: 'button', onclick: () => (needsLogin ? onRelogin(a) : onRefreshActive(a)) }, needsLogin ? t('relogin') : t('refreshSession')),
     h('button', { class: 'btn danger', type: 'button', onclick: () => onRemove(a) }, t('remove'))));
 
   if (paletteOpen) {
@@ -197,6 +198,8 @@ function renderDetails() {
 function renderSettings() {
   $('#pwState').textContent = t('pwStateSet');
   $('#autoLock').value = String(S.autoLockMin);
+  $('#autoLock').querySelector('option[value="0"]').disabled = S.remember;   // meaningless while remembering
+  $('#rememberChk').checked = S.remember;
   $('#version').textContent = 'v' + S.version;
 }
 
@@ -213,11 +216,14 @@ async function onChip(id) {
   });
 }
 
-async function onAdd() {
-  // Adding signs the browser out of claude.ai; warn if the live session is not saved yet.
+/** Start the sign-in flow (new account, or `reloginId` to refresh an existing one). */
+async function startFlow(payload = {}) {
+  // Signing in signs the browser out of claude.ai; warn if the live session is not saved yet.
   if (detected && detected.loggedIn && !detected.matchId && !S.pending && !confirm(t('confirmUnsaved'))) return;
-  try { await call('startAdd'); window.close(); } catch (e) { toast(errText(e), true); }
+  try { await call('startAdd', payload); window.close(); } catch (e) { toast(errText(e), true); }
 }
+const onAdd = () => startFlow();
+const onRelogin = (a) => startFlow({ reloginId: a.id });
 
 const onCancelAdd = () => run(async () => { await call('cancelAdd'); detected = null; });
 
@@ -227,7 +233,11 @@ const onSave = () => run(async () => {
   toast(t(r.updated ? 'toastUpdated' : 'toastSaved'));
 });
 
-const onRefreshActive = () => run(async () => { await call('refreshActive'); toast(t('toastUpdated')); });
+// If the live session is already dead, go straight to "sign in again" instead of just failing.
+async function onRefreshActive(a) {
+  try { await call('refreshActive'); toast(t('toastUpdated')); await refresh(); }
+  catch (e) { if (e.code === 'NOT_LOGGED_IN') return startFlow({ reloginId: a.id }); toast(errText(e), true); }
+}
 
 const onRemove = (a) => {
   if (!confirm(t('confirmRemove', a.name))) return;
@@ -259,6 +269,11 @@ $('#pwForm').addEventListener('submit', (e) => {
   const pw = $('#newPw').value;
   if (!checkPasswords(pw, $('#newPw2').value)) return;
   run(async () => { await call('setPassword', { password: pw }); $('#pwForm').reset(); toast(t('toastPwSet')); });
+});
+$('#rememberChk').addEventListener('change', (e) => {
+  const on = e.target.checked;
+  if (on && !confirm(t('confirmRemember'))) { e.target.checked = false; return; }
+  run(async () => { await call('setRemember', { enabled: on }); toast(t(on ? 'toastRememberOn' : 'toastRememberOff')); });
 });
 $('#autoLock').addEventListener('change', (e) => run(() => call('setAutoLock', { minutes: Number(e.target.value) })));
 
