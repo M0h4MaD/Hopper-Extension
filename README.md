@@ -51,5 +51,8 @@ Switch between your own claude.ai accounts in one click — no logging out and i
 ## Contributing
 Issues and PRs are welcome. No build step: edit, then reload at `chrome://extensions`. Keep permissions minimal, add no network destinations, never log cookie values, and add a test for background-logic changes (`node tests/background.test.mjs`, with `background.js` and `crypto-vault.js` copied next to it or the import path adjusted).
 
+## Maintainer
+Made by [M0h4MaD](https://github.com/M0h4MaD). Bug reports and ideas: open an issue on this repository.
+
 ## License
 MIT — see [LICENSE](LICENSE).
