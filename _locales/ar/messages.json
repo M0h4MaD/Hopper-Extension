@@ -309,5 +309,94 @@
         "content": "$1"
       }
     }
+  },
+  "limitBtn": {
+    "message": "تسجيل بلوغ الحد"
+  },
+  "limitEdit": {
+    "message": "تعديل موعد إعادة التعيين"
+  },
+  "limitTitle": {
+    "message": "متى يُعاد تعيين الحد؟"
+  },
+  "limitIn1": {
+    "message": "بعد ساعة"
+  },
+  "limitIn3": {
+    "message": "بعد 3 ساعات"
+  },
+  "limitIn5": {
+    "message": "بعد 5 ساعات"
+  },
+  "limitCustom": {
+    "message": "أو اختر التاريخ والوقت"
+  },
+  "limitSet": {
+    "message": "تعيين"
+  },
+  "limitClear": {
+    "message": "مسح"
+  },
+  "limitOpenUsage": {
+    "message": "فتح صفحة الاستخدام في claude.ai"
+  },
+  "limitHint": {
+    "message": "تجد الوقت الدقيق في الإعدادات ← الاستخدام على claude.ai. هذا تذكير تُدخله بنفسك؛ الإضافة لا تقرأ استهلاكك."
+  },
+  "toastLimitSet": {
+    "message": "تم حفظ التذكير"
+  },
+  "toastLimitCleared": {
+    "message": "تم مسح التذكير"
+  },
+  "err_BAD_TIME": {
+    "message": "اختر وقتًا في المستقبل (خلال 8 أيام)."
+  },
+  "limitResets": {
+    "message": "يُعاد تعيين الحد خلال $WHEN$ (≈ $AT$)",
+    "placeholders": {
+      "when": {
+        "content": "$1"
+      },
+      "at": {
+        "content": "$2"
+      }
+    }
+  },
+  "limitUnknown": {
+    "message": "بلغ الحد — حدّد موعد إعادة التعيين"
+  },
+  "limitDetectTitle": {
+    "message": "اكتشاف الحد"
+  },
+  "limitDetectNote": {
+    "message": "عند بلوغ حد الاستخدام يُرجع claude.ai خطأً. تلتقطه الإضافة (أخطاء HTTP 429 الصادرة من claude.ai نفسه فقط) وتعلّم الحساب النشط. إذا كان وقت الإعادة خاطئًا أو مفقودًا فانسخ التشخيص وأرسله للمطوّر؛ لا يحتوي أي نص من رسائلك."
+  },
+  "limitDiagBtn": {
+    "message": "نسخ تشخيص الحد"
+  },
+  "toastDiagCopied": {
+    "message": "تم النسخ"
+  },
+  "toastDiagNone": {
+    "message": "لم تُسجَّل أي حالة حد بعد"
+  },
+  "limitMode_in": {
+    "message": "بعد"
+  },
+  "limitMode_at": {
+    "message": "عند"
+  },
+  "limitMode_date": {
+    "message": "تاريخ"
+  },
+  "limitHours": {
+    "message": "ساعات"
+  },
+  "limitMinutes": {
+    "message": "دقائق"
+  },
+  "limitAtLabel": {
+    "message": "الوقت من اليوم"
   }
 }

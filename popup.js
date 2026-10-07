@@ -4,6 +4,8 @@
  */
 'use strict';
 
+import { untilFromIn, untilFromClock, durationParts, localDateTimeMin } from './time-utils.js';
+
 const $ = (sel) => document.querySelector(sel);
 const t = (key, ...subs) => chrome.i18n.getMessage(key, subs.map(String)) || key;
 
@@ -13,6 +15,9 @@ let detected = null;     // result of "detect": is an unsaved/saved session live
 let view = 'main';       // 'main' | 'settings'
 let renaming = false;
 let paletteOpen = false;
+let limitOpen = false;
+let limitMode = 'in';          // 'in' (hours + minutes) | 'at' (time of day) | 'date'
+const autoOpened = new Set();  // accounts whose limit panel we already opened automatically
 let dismissedSave = false;
 
 /* ------------------------------ helpers ------------------------------ */
@@ -70,6 +75,23 @@ function timeAgo(ts) {
 
 const show = (sel, on) => { $(sel).hidden = !on; };
 
+const limitText = (a) => (a.limitGuess ? t('limitUnknown') : resetText(a.limitUntil));
+
+/** "Limit resets in 2h 30m (≈ 6:30 PM)" — localized. */
+function resetText(until) {
+  const lang = chrome.i18n.getUILanguage();
+  const ms = until - Date.now();
+  const { days, hours, minutes } = durationParts(ms);
+  const unit = (v, u) => new Intl.NumberFormat(lang, { style: 'unit', unit: u, unitDisplay: 'narrow' }).format(v);
+  const parts = [];
+  if (days) parts.push(unit(days, 'day'));
+  if (hours) parts.push(unit(hours, 'hour'));
+  if (minutes && !days) parts.push(unit(minutes, 'minute'));
+  const when = parts.join(' ') || unit(1, 'minute');
+  const at = new Intl.DateTimeFormat(lang, ms > 12 * 3600000 ? { dateStyle: 'medium', timeStyle: 'short' } : { timeStyle: 'short' }).format(until);
+  return t('limitResets', when, at);
+}
+
 /* ------------------------------ rendering ------------------------------ */
 
 async function refresh() {
@@ -100,9 +122,9 @@ function renderChips(ready) {
   box.replaceChildren();
   if (!ready) return;
   for (const a of S.accounts) {
-    const cls = ['chip', a.id === S.activeId && 'active', a.id === selectedId && 'selected', a.status === 'expired' && 'expired'];
+    const cls = ['chip', a.id === S.activeId && 'active', a.id === selectedId && 'selected', a.status === 'expired' && 'expired', a.limitUntil && 'limited'];
     const chip = h('button', {
-      class: cls.filter(Boolean).join(' '), type: 'button', title: `${a.name}\n${t('chipHint')}`,
+      class: cls.filter(Boolean).join(' '), type: 'button', title: `${a.name}${a.limitUntil ? '\n' + limitText(a) : ''}\n${t('chipHint')}`,
       'aria-label': a.name, 'aria-pressed': String(a.id === S.activeId),
       onclick: () => onChip(a.id),
       oncontextmenu: (e) => { e.preventDefault(); selectedId = a.id; view = 'main'; render(); },
@@ -152,6 +174,7 @@ function renderDetails() {
   selectedId = a.id;
   const isActive = a.id === S.activeId;
   const expired = a.status === 'expired';
+  if (a.limitGuess && !autoOpened.has(a.id)) { autoOpened.add(a.id); limitOpen = true; }   // limit detected, time unknown: ask for it
 
   const avatar = h('div', { class: 'avatar' }, initial(a.name));
   avatar.style.setProperty('--c', a.color);
@@ -161,7 +184,8 @@ function renderDetails() {
       h('div', {}, h('div', { class: 'name' }, a.name), h('div', { class: 'email' }, a.email || t('emailUnknown')))),
     h('div', { class: 'meta' },
       h('span', {}, t('lastUsed', timeAgo(a.lastUsed))),
-      expired ? h('span', { class: 'pill bad' }, t('statusExpired')) : (isActive ? h('span', { class: 'pill ok' }, t('statusActive')) : '')));
+      expired ? h('span', { class: 'pill bad' }, t('statusExpired')) : (isActive ? h('span', { class: 'pill ok' }, t('statusActive')) : ''),
+      a.limitUntil ? h('span', { class: 'pill limit' }, limitText(a)) : ''));
 
   if (renaming) {
     const input = h('input', { type: 'text', maxlength: '40', value: a.name, 'aria-label': t('rename') });
@@ -183,6 +207,9 @@ function renderDetails() {
     h('button', { class: 'btn' + (expired ? ' primary' : ''), type: 'button', onclick: () => (needsLogin ? onRelogin(a) : onRefreshActive(a)) }, needsLogin ? t('relogin') : t('refreshSession')),
     h('button', { class: 'btn danger', type: 'button', onclick: () => onRemove(a) }, t('remove'))));
 
+  card.append(h('button', { class: 'btn link', type: 'button', onclick: () => { limitOpen = !limitOpen; render(); } }, a.limitUntil ? t('limitEdit') : t('limitBtn')));
+  if (limitOpen) card.append(limitPanel(a));
+
   if (paletteOpen) {
     const pal = h('div', { class: 'palette' });
     for (const c of S.palette) {
@@ -193,6 +220,47 @@ function renderDetails() {
     card.append(pal);
   }
   box.append(card);
+}
+
+function limitPanel(a) {
+  const set = (until) => run(async () => { limitOpen = false; await call('setLimit', { id: a.id, until }); toast(t(until ? 'toastLimitSet' : 'toastLimitCleared')); });
+  const preset = (hours) => h('button', { class: 'btn', type: 'button', onclick: () => set(Date.now() + hours * 3600000) }, t('limitIn' + hours));
+
+  const hrs = h('input', { type: 'number', min: '0', max: '192', step: '1', placeholder: '0', inputmode: 'numeric', 'aria-label': t('limitHours') });
+  const mins = h('input', { type: 'number', min: '0', max: '59', step: '1', placeholder: '0', inputmode: 'numeric', 'aria-label': t('limitMinutes') });
+  const clock = h('input', { type: 'time', 'aria-label': t('limitAtLabel') });
+  const date = h('input', { type: 'datetime-local', min: localDateTimeMin(), 'aria-label': t('limitCustom') });
+  const preview = h('p', { class: 'note', 'aria-live': 'polite' });
+
+  const compute = () => {
+    if (limitMode === 'in') return untilFromIn(parseInt(hrs.value || '0', 10), parseInt(mins.value || '0', 10));
+    if (limitMode === 'at') return untilFromClock(clock.value);
+    const ts = date.value ? new Date(date.value).getTime() : NaN;
+    return Number.isFinite(ts) ? ts : null;
+  };
+  const refreshPreview = () => { const u = compute(); preview.textContent = u ? resetText(u) : ''; };
+  for (const el of [hrs, mins, clock, date]) el.addEventListener('input', refreshPreview);
+  const submit = () => { const u = compute(); if (!u) { toast(t('err_BAD_TIME'), true); return; } set(u); };
+
+  const fields = {
+    in: h('div', { class: 'hm' }, hrs, h('span', {}, t('limitHours')), mins, h('span', {}, t('limitMinutes'))),
+    at: h('div', { class: 'hm' }, clock),
+    date: h('div', { class: 'hm' }, date),
+  };
+  const seg = h('div', { class: 'seg', role: 'tablist' }, ...['in', 'at', 'date'].map((m) =>
+    h('button', { type: 'button', role: 'tab', class: m === limitMode ? 'on' : '', 'aria-selected': String(m === limitMode), onclick: () => { limitMode = m; render(); } }, t('limitMode_' + m))));
+
+  return h('div', { class: 'limitbox' },
+    h('strong', {}, t('limitTitle')),
+    seg,
+    fields[limitMode],
+    preview,
+    h('div', { class: 'row' }, preset(1), preset(3), preset(5)),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn primary', type: 'button', onclick: submit }, t('limitSet')),
+      a.limitUntil ? h('button', { class: 'btn', type: 'button', onclick: () => set(null) }, t('limitClear')) : '',
+      h('button', { class: 'btn', type: 'button', onclick: () => chrome.tabs.create({ url: 'https://claude.ai/settings/usage' }) }, t('limitOpenUsage'))),
+    h('p', { class: 'note' }, t('limitHint')));
 }
 
 function renderSettings() {
@@ -276,6 +344,16 @@ $('#rememberChk').addEventListener('change', (e) => {
   run(async () => { await call('setRemember', { enabled: on }); toast(t(on ? 'toastRememberOn' : 'toastRememberOff')); });
 });
 $('#autoLock').addEventListener('change', (e) => run(() => call('setAutoLock', { minutes: Number(e.target.value) })));
+
+$('#copyDiag').addEventListener('click', async () => {
+  try {
+    const text = await call('limitDiag');
+    if (!text) { toast(t('toastDiagNone')); return; }
+    try { await navigator.clipboard.writeText(text); }
+    catch { const ta = h('textarea', {}); ta.value = text; document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+    toast(t('toastDiagCopied'));
+  } catch (e) { toast(errText(e), true); }
+});
 
 $('#deleteAll').addEventListener('click', () => {
   if (!confirm(t('confirmDeleteAll'))) return;

@@ -36,7 +36,7 @@ globalThis.chrome = {
   tabs: { async query() { return []; }, async create(o) { calls.tabsCreate.push(o.url); return { id: 7 }; }, async update(id, o) { calls.tabsUpdate.push(o.url); return { id }; }, reload(id) { calls.reload.push(id); }, onUpdated: { addListener: (f) => { tabHandler = f; } } },
   action: { setBadgeText: (o) => calls.badge.push(o.text), setBadgeBackgroundColor() {}, setTitle() {} },
   i18n: { getMessage: (k, s) => k + (s ? ':' + s : '') },
-  runtime: { id: 'test', lastError: undefined, getManifest: () => ({ version: 't' }), onInstalled: { addListener() {} }, onStartup: { addListener() {} }, onMessage: { addListener: (f) => { msgHandler = f; } } },
+  runtime: { id: 'test', getURL: (p) => 'chrome-extension://test/' + p, lastError: undefined, getManifest: () => ({ version: 't' }), onInstalled: { addListener() {} }, onStartup: { addListener() {} }, onMessage: { addListener: (f) => { msgHandler = f; } } },
   commands: { onCommand: { addListener() {} } },
 };
 const accounts = { TOKA: { email_address: 'alice@example.com', full_name: 'Alice' }, TOKB: { email_address: 'bob@example.com', full_name: 'Bob' } };
@@ -44,7 +44,8 @@ globalThis.fetch = async () => { const sid = jar.find((c) => c.name === 'sid'); 
   return { status: body ? 200 : 401, ok: !!body, headers: { get: () => 'application/json' }, json: async () => body }; };
 
 await import('./background.js');
-const send = (type, p = {}) => new Promise((res) => msgHandler({ type, ...p }, { id: 'test' }, res));
+const EXT = { id: 'test', url: 'chrome-extension://test/popup.html' };
+const send = (type, p = {}, sender = EXT) => new Promise((res) => msgHandler({ type, ...p }, sender, res));
 const ok = async (type, p) => { const r = await send(type, p); assert.ok(r.ok, `${type} failed: ${JSON.stringify(r)}`); return r.data; };
 const err = async (type, p) => { const r = await send(type, p); assert.ok(!r.ok, `${type} should fail`); return r.error.code; };
 const login = (tok) => { jar = [
@@ -160,6 +161,58 @@ await ok('lock'); assert.ok(!local.m.has('remember')); assert.equal((await ok('s
 await ok('unlock', { password: 'upgrade pass 1' }); assert.equal(await err('setAutoLock', { minutes: 0 }), 'GENERIC'); pass('"until browser closes" is rejected while remembering');
 await ok('setRemember', { enabled: false }); assert.ok(!local.m.has('remember')); session.m.clear();
 assert.equal((await ok('status')).locked, true); await ok('unlock', { password: 'upgrade pass 1' }); pass('turning remember off requires the password after restart');
+
+/* 9d. limit-reset reminder (manual, encrypted, auto-hiding) */
+const LID = 'legacy-1';
+const until = Date.now() + 3 * 3600000;
+await ok('setLimit', { id: LID, until });
+st = await ok('status'); assert.equal(st.accounts.find((a) => a.id === LID).limitUntil, until);
+assert.ok(!JSON.stringify([...local.m]).includes('limitUntil') && !JSON.stringify([...local.m]).includes(String(until))); pass('limit reminder is saved and stored encrypted');
+for (const bad of [Date.now() - 1000, Date.now() + 9 * 24 * 3600000, 'soon', NaN, undefined]) assert.equal(await err('setLimit', { id: LID, until: bad }), 'BAD_TIME');
+assert.equal(await err('setLimit', { id: 'nope', until }), 'NOT_FOUND'); pass('invalid reminder times are rejected');
+await ok('setLimit', { id: LID, until: null }); st = await ok('status'); assert.equal(st.accounts.find((a) => a.id === LID).limitUntil, null); pass('limit reminder can be cleared');
+await ok('setLimit', { id: LID, until: Date.now() + 150 }); await sleep(250);
+st = await ok('status'); assert.equal(st.accounts.find((a) => a.id === LID).limitUntil, null); pass('reminder disappears by itself after the reset time');
+
+/* 9e. automatic limit detection */
+const { parseLimit, shapeOf } = await import('./limit-parser.js');
+const NOW = 1_700_000_000_000, SEC = Math.floor(NOW / 1000);
+const P = (o) => parseLimit({ status: 429, now: NOW, ...o });
+assert.equal(P({ retryAfter: '3600', body: '' }).until, NOW + 3600000);
+assert.equal(P({ retryAfter: new Date(NOW + 7200000).toUTCString(), body: '' }).until, NOW + 7200000);
+assert.equal(P({ body: JSON.stringify({ error: { resetsAt: SEC + 5400 } }) }).until, (SEC + 5400) * 1000);
+assert.equal(P({ body: JSON.stringify({ resets_at: (SEC + 5400) * 1000 }) }).until, (SEC + 5400) * 1000);
+assert.equal(P({ body: JSON.stringify({ windows: { five_hour: { resets_at: new Date((SEC + 6000) * 1000).toISOString() } } }) }).until, (SEC + 6000) * 1000);
+const emb = JSON.stringify({ type: 'error', error: { type: 'rate_limit_error', message: JSON.stringify({ type: 'exceeded_limit', resetsAt: SEC + 9000 }) } });
+assert.equal(P({ body: emb }).until, (SEC + 9000) * 1000);
+assert.equal(P({ body: JSON.stringify({ a: { resetsAt: SEC + 90000 }, b: { resetsAt: SEC + 7000 } }) }).until, (SEC + 7000) * 1000);
+assert.equal(P({ retryAfter: '30', body: '{"error":{"type":"rate_limit_error"}}' }).isLimit, false);
+assert.equal(P({ body: '{"error":{"type":"overloaded_error"}}' }).isLimit, false);
+assert.equal(P({ retryAfter: String(30 * 86400), body: '' }).isLimit, false);
+const unk = P({ body: '{"error":{"message":"You have reached your usage limit"}}' }); assert.equal(unk.isLimit, true); assert.equal(unk.until, null);
+assert.equal(parseLimit({ status: 500, retryAfter: '3600', body: '', now: NOW }).isLimit, false);
+const sh = shapeOf(JSON.stringify({ error: { type: 'rate_limit_error', message: 'secret user text here' } }));
+assert.equal(sh.error.type, 'rate_limit_error'); assert.ok(sh.error.message.startsWith('<string:')); pass('limit parser: header, body, embedded JSON, multiple windows; ignores ordinary throttling');
+
+const TAB = { id: 'test', url: 'https://claude.ai/chat/abc', tab: { id: 1 } };
+const hit = (body, ra = null, sender = TAB) => send('limitHit', { status: 429, path: '/api/organizations/1234abcd-0000-0000-0000-000000000000/chat_conversations/x/completion', retryAfter: ra, body }, sender);
+const acct = async () => (await ok('status')).accounts.find((a) => a.id === LID);
+await ok('setLimit', { id: LID, until: null });
+let r = await hit(JSON.stringify({ error: { resetsAt: Math.floor(Date.now() / 1000) + 7200 } })); assert.ok(r.ok);
+let a9 = await acct(); assert.ok(a9.limitUntil > Date.now() + 3600000); assert.equal(a9.limitGuess, false); pass('a 429 with a reset time marks the active account automatically');
+await ok('setLimit', { id: LID, until: null });
+await hit('{"error":{"message":"You have reached your usage limit"}}'); a9 = await acct();
+assert.equal(a9.limitGuess, true); assert.ok(a9.limitUntil > Date.now()); pass('a limit without a reset time is marked as "time unknown"');
+await ok('setLimit', { id: LID, until: Date.now() + 2 * 3600000 }); a9 = await acct(); assert.equal(a9.limitGuess, false);
+await hit('{"error":{"message":"You have reached your usage limit"}}'); a9 = await acct(); assert.equal(a9.limitGuess, false); pass('an unknown-time event never overwrites a known reset time');
+await ok('setLimit', { id: LID, until: null }); await hit('{"error":{"type":"rate_limit_error"}}', '20'); a9 = await acct(); assert.equal(a9.limitUntil, null); pass('ordinary request throttling is ignored');
+assert.equal((await send('switch', { id: LID }, TAB)).ok, false);
+assert.equal((await send('limitHit', { status: 429, body: 'x' }, EXT)).ok, false);
+assert.equal((await send('status', {}, { id: 'test', url: 'https://evil.example/' })).ok, false); pass('content scripts can only call limitHit; popup cannot; foreign origins rejected');
+await ok('lock'); r = await hit(JSON.stringify({ error: { resetsAt: Math.floor(Date.now() / 1000) + 3 * 3600 } })); assert.equal(r.data.queued, true);
+await ok('unlock', { password: 'upgrade pass 1' }); await ok('detect'); a9 = await acct(); assert.ok(a9.limitUntil > Date.now() + 2.5 * 3600000); pass('a limit hit while locked is applied after unlock');
+const diag = JSON.parse(await ok('limitDiag')); assert.ok(diag.path.includes(':id')); assert.ok(!JSON.stringify(diag).includes('1234abcd')); assert.ok(!JSON.stringify([...local.m]).includes('limitGuess')); pass('diagnostics are structure-only; limit data stays encrypted at rest');
+await ok('setLimit', { id: LID, until: null });
 
 /* 10. delete all, and no sync usage */
 await ok('deleteAll'); assert.equal(local.m.size, 0); assert.equal(session.m.size, 0); assert.equal((await ok('status')).setupDone, false); pass('delete all data');

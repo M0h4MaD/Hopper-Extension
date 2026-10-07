@@ -309,5 +309,94 @@
         "content": "$1"
       }
     }
+  },
+  "limitBtn": {
+    "message": "Token limit"
+  },
+  "limitEdit": {
+    "message": "Edit limit reset time"
+  },
+  "limitTitle": {
+    "message": "When does the limit reset?"
+  },
+  "limitIn1": {
+    "message": "In 1 hour"
+  },
+  "limitIn3": {
+    "message": "In 3 hours"
+  },
+  "limitIn5": {
+    "message": "In 5 hours"
+  },
+  "limitCustom": {
+    "message": "Or pick a date and time"
+  },
+  "limitSet": {
+    "message": "Set"
+  },
+  "limitClear": {
+    "message": "Clear"
+  },
+  "limitOpenUsage": {
+    "message": "Open usage page on claude.ai"
+  },
+  "limitHint": {
+    "message": "Find the exact time in Settings → Usage on claude.ai. This is a reminder you enter yourself; the extension does not read your usage."
+  },
+  "toastLimitSet": {
+    "message": "Reminder saved"
+  },
+  "toastLimitCleared": {
+    "message": "Reminder cleared"
+  },
+  "err_BAD_TIME": {
+    "message": "Pick a time in the future (within 8 days)."
+  },
+  "limitResets": {
+    "message": "Limit resets in $WHEN$ (≈ $AT$)",
+    "placeholders": {
+      "when": {
+        "content": "$1"
+      },
+      "at": {
+        "content": "$2"
+      }
+    }
+  },
+  "limitUnknown": {
+    "message": "Limit reached — set when it resets"
+  },
+  "limitDetectTitle": {
+    "message": "Limit detection"
+  },
+  "limitDetectNote": {
+    "message": "When you hit a usage limit, claude.ai returns an error. The extension notices it (only HTTP 429 errors from claude.ai itself) and marks the active account. If the reset time is wrong or missing, copy the diagnostics and send them to the developer; they contain no message text."
+  },
+  "limitDiagBtn": {
+    "message": "Copy limit diagnostics"
+  },
+  "toastDiagCopied": {
+    "message": "Copied"
+  },
+  "toastDiagNone": {
+    "message": "No limit event recorded yet"
+  },
+  "limitMode_in": {
+    "message": "In"
+  },
+  "limitMode_at": {
+    "message": "At"
+  },
+  "limitMode_date": {
+    "message": "Date"
+  },
+  "limitHours": {
+    "message": "hours"
+  },
+  "limitMinutes": {
+    "message": "minutes"
+  },
+  "limitAtLabel": {
+    "message": "Time of day"
   }
 }

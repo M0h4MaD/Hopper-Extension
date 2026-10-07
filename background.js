@@ -16,6 +16,7 @@
  *    after restart" is a device-key-wrapped copy kept on disk (still expiring after the idle time).
  */
 
+import { parseLimit, shapeOf, maskPath } from './limit-parser.js';
 import {
   PBKDF2_ITERATIONS, b64, unb64, newSalt, deriveKeyFromPassword, exportRaw, importRaw,
   encryptJSON, decryptJSON, sha256Hex, getDeviceKey, wipeDeviceKey,
@@ -27,6 +28,8 @@ const STATE_KEY = 'state';
 const REMEMBER_KEY = 'remember';   // optional: unlock key wrapped by the device key (see "Stay unlocked after restart")
 const MIN_PASSWORD = 8;
 const MAX_ACCOUNTS = 20;
+const GUESS_MS = 3600 * 1000;                // when a limit is detected but no reset time is given, show it for 1 h (renewed by the next 429)
+const MAX_LIMIT_MS = 8 * 24 * 3600 * 1000;   // a limit reminder can be at most ~a week and a day ahead
 const AUTOLOCK_DEFAULT = 240;                 // minutes of inactivity
 const AUTOLOCK_CHOICES = [15, 60, 240, 1440, 4320, 10080, 0];   // minutes; 1 day / 3 days / 1 week; 0 = until the browser closes
 const PALETTE = ['#4f46e5', '#0891b2', '#0d9488', '#16a34a', '#ca8a04', '#ea580c', '#db2777', '#9333ea'];
@@ -162,7 +165,26 @@ async function openState({ touch = true } = {}) {
   ensureReady(state);
   const key = await getKey(state, { touch });
   await hydrate(state, key);
+  await syncPendingLimits(state, key);
   return { state, key };
+}
+
+/** Limit events that arrived while the vault was locked are applied the next time it is open. */
+async function syncPendingLimits(state, key) {
+  const { pendingLimits } = await chrome.storage.session.get('pendingLimits');
+  if (!pendingLimits || !pendingLimits.length) return;
+  await chrome.storage.session.remove('pendingLimits');
+  for (const p of pendingLimits) applyLimit(state, p.id, p.until);
+  await persist(state, key);
+}
+
+function applyLimit(state, id, until) {
+  const acc = state.accounts.find((a) => a.id === id);
+  if (!acc) return null;
+  const now = Date.now();
+  if (until) { acc.limitUntil = until; delete acc.limitGuess; }
+  else if (!(acc.limitUntil > now)) { acc.limitUntil = now + GUESS_MS; acc.limitGuess = true; }
+  return acc;
 }
 
 const encCookies = (key, id, list) => encryptJSON(key, list, `${id}:cookies`);
@@ -170,6 +192,8 @@ const encCookies = (key, id, list) => encryptJSON(key, list, `${id}:cookies`);
 const publicAccount = (a) => ({
   id: a.id, name: a.name, color: a.color, email: a.email || null,
   createdAt: a.createdAt, lastUsed: a.lastUsed || null, status: a.status,
+  limitUntil: a.limitUntil && a.limitUntil > Date.now() ? a.limitUntil : null,   // reset time (detected or user-entered); auto-hides once passed
+  limitGuess: !!(a.limitGuess && a.limitUntil && a.limitUntil > Date.now()),     // true = limit detected but reset time unknown
 });
 
 /* ------------------------------ cookies ----------------------------- */
@@ -733,6 +757,52 @@ const opSetColor = ({ id, color }) => {
   if (!/^#[0-9a-f]{6}$/i.test(String(color))) throw new AppError('GENERIC');
   return mutateAccount(id, (a) => { a.color = color; });
 };
+/**
+ * "Limit reached" reminder. The extension does NOT read any usage data from claude.ai:
+ * the user enters when the limit resets (or clears it). It is stored encrypted with the account label.
+ */
+const opSetLimit = ({ id, until }) => {
+  if (until !== null) {
+    const now = Date.now();
+    if (typeof until !== 'number' || !Number.isFinite(until) || until <= now || until > now + MAX_LIMIT_MS) throw new AppError('BAD_TIME');
+  }
+  return mutateAccount(id, (a) => { delete a.limitGuess; if (until === null) delete a.limitUntil; else a.limitUntil = until; });
+};
+/**
+ * A claude.ai tab reported an HTTP 429. The payload comes from page context, so treat it as a hint:
+ * validate, parse conservatively, only ever touch the ACTIVE account's reminder.
+ */
+async function opLimitHit(m) {
+  const body = typeof m.body === 'string' ? m.body.slice(0, 4000) : '';
+  const retryAfter = typeof m.retryAfter === 'string' ? m.retryAfter.slice(0, 64) : null;
+  const info = parseLimit({ status: m.status, retryAfter, body, now: Date.now() });
+  await chrome.storage.session.set({ lastLimit: { at: Date.now(), path: maskPath(m.path), retryAfter, shape: shapeOf(body), result: info } });
+  if (!info.isLimit) return { ignored: true };
+
+  const raw = await loadState();
+  if (!raw.setupDone || raw.vault.mode !== 'password' || !raw.activeId) return { ignored: true };
+  let opened;
+  try { opened = await openState({ touch: false }); }
+  catch {                                              // locked (e.g. idle while chatting): remember it for later
+    const { pendingLimits = [] } = await chrome.storage.session.get('pendingLimits');
+    pendingLimits.push({ id: raw.activeId, until: info.until });
+    await chrome.storage.session.set({ pendingLimits: pendingLimits.slice(-10) });
+    return { queued: true };
+  }
+  const { state, key } = opened;
+  const acc = applyLimit(state, state.activeId, info.until);
+  if (!acc) return { ignored: true };
+  await persist(state, key);
+  flashBadge('LIM', '#d97706', 3000);
+  return { id: acc.id, until: acc.limitUntil, guess: !!acc.limitGuess };
+}
+
+/** Structure-only record of the last 429 (no free text) for the "Copy limit diagnostics" button. */
+async function opLimitDiag() {
+  const { lastLimit } = await chrome.storage.session.get('lastLimit');
+  return lastLimit ? JSON.stringify(lastLimit, null, 2) : null;
+}
+
 const opRemove = ({ id }) => mutateAccount(id, (a, s) => {
   s.accounts = s.accounts.filter((x) => x.id !== id);
   if (s.activeId === id) s.activeId = null;   // browser stays signed in; we just forget the snapshot
@@ -777,13 +847,22 @@ const HANDLERS = {
   switch: (m) => serial(() => opSwitch(String(m.id))),
   refreshActive: () => serial(opRefreshActive),
   rename: (m) => serial(() => opRename(m)),
+  setLimit: (m) => serial(() => opSetLimit(m)),
+  limitHit: (m) => serial(() => opLimitHit(m)),     // content script only (see onMessage)
+  limitDiag: () => opLimitDiag(),
   setColor: (m) => serial(() => opSetColor(m)),
   remove: (m) => serial(() => opRemove(m)),
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (sender.id !== chrome.runtime.id) return;       // ignore anything not from this extension
-  const handler = msg && HANDLERS[msg.type];
+  // Two kinds of senders: our own pages (popup) may call everything except limitHit;
+  // our claude.ai content script may call limitHit and nothing else.
+  const fromExtensionPage = typeof sender.url === 'string' && sender.url.startsWith(chrome.runtime.getURL(''));
+  const fromClaudeTab = !fromExtensionPage && originOf(sender.url) === ORIGIN;
+  const type = msg && msg.type;
+  const allowed = fromExtensionPage ? type !== 'limitHit' : fromClaudeTab ? type === 'limitHit' : false;
+  const handler = allowed && HANDLERS[type];
   if (!handler) { sendResponse({ ok: false, error: { code: 'GENERIC' } }); return; }
   handler(msg).then(
     (data) => sendResponse({ ok: true, data: data === undefined ? null : data }),

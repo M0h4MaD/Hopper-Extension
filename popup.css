@@ -50,7 +50,7 @@ button, input { font: inherit; color: inherit; }
 .about { margin-block-start: 16px; }
 label { display: block; margin-block-end: 8px; }
 label span { display: block; margin-block-end: 3px; color: var(--muted); font-size: 12px; }
-input[type=text], input[type=password], select {
+input[type=text], input[type=password], input[type=datetime-local], select {
   width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
 }
 
@@ -100,3 +100,22 @@ input[type=text], input[type=password], select {
 label.check { display: flex; gap: 8px; align-items: flex-start; margin-block-start: 12px; }
 label.check span { display: inline; margin: 0; color: var(--fg); font-size: 13px; }
 label.check input { margin-block-start: 3px; }
+
+/* limit reminder */
+.chip.limited::before {
+  content: "\25D4"; position: absolute; inset-block-end: -3px; inset-inline-end: -3px;
+  width: 16px; height: 16px; border-radius: 50%; background: var(--warn); color: #fff; font-size: 11px; line-height: 16px;
+}
+.pill.limit { color: var(--warn); }
+.limitbox { margin-block-start: 10px; padding-block-start: 10px; border-block-start: 1px solid var(--line); }
+.limitbox .row { display: flex; flex-wrap: wrap; gap: 6px; margin-block: 8px; align-items: center; }
+.limitbox input[type=datetime-local] { flex: 1; min-width: 0; }
+
+/* alarm-style limit picker */
+.seg { display: flex; margin-block: 8px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { flex: 1; padding: 5px 4px; border: 0; background: var(--panel); cursor: pointer; }
+.seg button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.hm { display: flex; gap: 6px; align-items: center; margin-block: 6px; }
+.hm input { width: 72px; text-align: center; }
+.hm input[type=time], .hm input[type=datetime-local] { width: 100%; text-align: start; }
+.hm span { color: var(--muted); font-size: 12px; }

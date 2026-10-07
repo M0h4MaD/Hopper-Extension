@@ -1,5 +1,5 @@
 # Hopper — Account Switcher for claude.ai (Unofficial)
-## Engineering and Academic Documentation — Version 1.2.0
+## Engineering and Academic Documentation — Version 1.4.1
 
 > **Disclaimer:** Unofficial project. Not affiliated with, endorsed by, or sponsored by Anthropic. The name "claude.ai" appears only to describe the website the extension operates on. Use it only with accounts you own. Do not use it to share accounts or to bypass usage limits.
 >
@@ -116,6 +116,9 @@ Websites typically keep authentication state in cookies (see RFC 6265). Properti
 | `manifest.json` | Permissions, shortcuts, CSP, icons, default locale |
 | `background.js` | Service worker: cookies, storage, cryptography orchestration, switching, flows, badge, shortcuts |
 | `crypto-vault.js` | Web Crypto operations (key derivation, AES-GCM encrypt/decrypt, SHA-256, legacy device key) |
+| `time-utils.js` | Pure functions for the alarm-style picker (hours+minutes, next time of day, duration parts) |
+| `limit-parser.js` | Pure functions: turn a 429 response into "limit? reset time?"; structure-only body view for diagnostics |
+| `content/page-hook.js`, `content/relay.js` | claude.ai content scripts that report HTTP 429 limit errors (page world + isolated relay) |
 | `popup.html/css/js` | User interface; holds no secrets and only sends messages to the background |
 | `_locales/{en,ar}` | 83 message keys per language (`chrome.i18n`) |
 | `tests/background.test.mjs` | Background-logic tests with mocked browser APIs |
@@ -139,7 +142,7 @@ flowchart LR
 
 The UI talks to the background with messages `{type, ...payload}` and receives `{ok, data}` or `{ok:false, error:{code}}`. The background verifies `sender.id === chrome.runtime.id` and ignores any other sender. Message types:
 
-`status`, `setup`, `unlock`, `lock`, `setPassword`, `setAutoLock`, `setRemember`, `deleteAll`, `detect`, `saveCurrent`, `startAdd`, `cancelAdd`, `switch`, `refreshActive`, `rename`, `setColor`, `remove`.
+`status`, `setup`, `unlock`, `lock`, `setPassword`, `setAutoLock`, `setRemember`, `setLimit`, `limitHit` (content script only), `limitDiag`, `deleteAll`, `detect`, `saveCurrent`, `startAdd`, `cancelAdd`, `switch`, `refreshActive`, `rename`, `setColor`, `remove`.
 
 ### 5.4 Concurrency Model
 
@@ -171,7 +174,7 @@ function serial(fn) { const run = queue.then(fn); queue = run.catch(() => {}); r
   "activeId": "<uuid> | null",
   "accounts": [
     { "id": "<uuid>",
-      "meta": { "v": 2, "iv": "...", "ct": "..." },   // encrypted: name,color,email,sfp,createdAt,lastUsed,status
+      "meta": { "v": 2, "iv": "...", "ct": "..." },   // encrypted: name,color,email,sfp,createdAt,lastUsed,status,limitUntil?
       "blob": { "v": 2, "iv": "...", "ct": "..." } }  // encrypted: array of cookies
   ]
 }
@@ -367,6 +370,32 @@ stateDiagram-v2
 
 A session is marked `expired` in two cases: (1) all cookies in the snapshot are expired by timestamp, or (2) about 2.5 seconds after a switch, the probe returns `anon`. The UI offers "Sign in again" (which starts the add flow). Expired accounts are skipped when cycling by shortcut.
 
+### 8.6 Limit Detection and Reset Reminder
+
+An account may carry `limitUntil` (and `limitGuess`) in its encrypted `meta`. The popup shows it as a badge on the chip, a native tooltip (`title`) on hover ("Limit resets in 2 hours (≈ 6:30 PM)"), and a pill on the detail card. It is purely informational: it does not change switching, shortcuts, or any limit.
+
+**Automatic detection pipeline**
+
+```mermaid
+flowchart LR
+  A[claude.ai page<br/>fetch → HTTP 429] --> H[page-hook.js<br/>MAIN world<br/>copies status, Retry-After, body ≤4000]
+  H -- window.postMessage --> R[relay.js<br/>ISOLATED world<br/>validates origin/source/shape]
+  R -- runtime.sendMessage limitHit --> B[background.js<br/>sender check → parseLimit]
+  B --> S[(active account<br/>limitUntil / limitGuess<br/>encrypted)]
+```
+
+- `page-hook.js` wraps `window.fetch` and returns the **original promise untouched**; in a side branch it clones the response only when the status is 429 and the request is a same-origin `/api/` call. It never alters requests or responses.
+- `relay.js` re-validates everything (window, origin, version, shape) and caps sizes, because page context is untrusted.
+- `background.js` accepts `limitHit` **only** from a claude.ai content-script sender, and accepts every other message **only** from the extension's own pages (checked by sender URL).
+- `parseLimit` (pure function, `limit-parser.js`) reads the `Retry-After` header and scans the JSON body, including JSON embedded in string fields, for reset-time keys (absolute: `resetsAt`, `reset_time`...; relative: `retry_after`, `resets_in`...). Epoch seconds/milliseconds, ISO dates, and numeric strings are understood.
+- **Selection rules:** only times in the future and within 8 days count; with several windows (for example a short window and a weekly cap) the **earliest** future time is used, and the next 429 corrects it if that was not the binding limit; waits under 2 minutes are treated as ordinary throttling and ignored.
+- **Unknown reset time:** if no time is found but the text clearly says a usage limit was reached, the account is marked `limitGuess` for 1 hour (renewed by the next 429). A guess never overwrites a known reset time.
+- **Locked vault:** only the plaintext `activeId` is needed to attribute the event, so it is queued in `storage.session` (`pendingLimits`) and applied by `openState` once the vault is open.
+- **Target:** always the currently active account (cookies are shared, so the tab's session is the active account).
+- **Format risk:** claude.ai's 429 body is not a documented API. The parser is tolerant and tested against plausible shapes only (Section 13.2). `lastLimit` in `storage.session` keeps a structure-only record (keys and types, short enum-like values, no free text) that the user can copy with *Copy limit diagnostics* to tune the parser.
+
+**Manual entry** is an alarm-style picker with three modes: *In* (hours + minutes from now), *At* (time of day; the next occurrence, tomorrow if it has already passed), and *Date* (exact date and time, for weekly caps), plus 1/3/5-hour shortcuts. A live preview shows the resulting reset time before saving. The arithmetic lives in `time-utils.js` (pure functions, unit-tested). The value must be in the future and at most 8 days ahead (otherwise `BAD_TIME`), and it overrides any guess. When a limit is detected without a reset time, the popup opens this picker automatically. Expired reminders are hidden by `publicAccount`, so no timer or `alarms` permission is needed.
+
 ---
 
 ## 9. Threat Model and Security Analysis
@@ -394,6 +423,7 @@ A session is marked `expired` in two cases: (1) all cookies in the snapshot are 
 | **A7** Injection (XSS) in the popup | Script execution in extension context | DOM built with `textContent`, no `innerHTML`; strict CSP | Low |
 | **A8** Server-side detection or restriction | Ends sessions or requests re-verification | Cannot be mitigated technically here | Unknown; consult the terms of service |
 | **A9** Tampering with the state file | Swaps records | GCM + AAD | Replacement with an older valid copy is undetected |
+| **A10** Script in the claude.ai page forging `limitHit` messages | Make an account look limited | Relay validation, background re-validation and sender gating; only the active account's reminder field can change; it affects no secrets | A false "limited" badge for up to the stated time |
 
 ### 9.3 Claimed Security Properties
 
@@ -425,6 +455,8 @@ A session is marked `expired` in two cases: (1) all cookies in the snapshot are 
 | `storage` | Keep encrypted snapshots and settings in `local`, and the temporary key in `session` |
 | `https://claude.ai/*` | Access the site's cookies and query session validity and account name/email |
 
+**Content scripts:** two scripts match `https://claude.ai/*` (one in the page world, one isolated). They add no permission beyond the host access already requested, are explained in Section 8.6, and are disclosed in `PRIVACY.md` and the store form.
+
 **Not requested:** `tabs` (the host permission suffices to read `url` of claude.ai tabs and to create, update, and reload tabs), `<all_urls>`, `alarms`, `scripting`, and no remote code. Dropping `tabs` also removes the "Read your browsing history" warning from the install dialog.
 
 ### 10.2 Data Policy
@@ -454,6 +486,7 @@ The background returns **stable codes** (not text); the UI translates them throu
 | `MISMATCH` | The live account differs from the account being updated |
 | `CORRUPT` | A record could not be decrypted (corruption or tampering) |
 | `TOO_MANY` | Too many unlock attempts; wait |
+| `BAD_TIME` | Limit reminder time is in the past or more than 8 days ahead |
 | `GENERIC` | Generic error |
 
 ---
@@ -474,7 +507,7 @@ The background returns **stable codes** (not text); the UI translates them throu
 
 ### 13.1 Automated Tests
 
-`tests/background.test.mjs` runs the real `background.js` against **mocks** of `chrome.storage`, `chrome.cookies`, `chrome.tabs`, `fetch`, and `IndexedDB`. It verifies **25 checks**:
+`tests/background.test.mjs` runs the real `background.js` against **mocks** of `chrome.storage`, `chrome.cookies`, `chrome.tabs`, `fetch`, and `IndexedDB`. It verifies **42 checks**:
 
 | # | Check |
 |---|---|
@@ -503,6 +536,23 @@ The background returns **stable codes** (not text); the UI translates them throu
 | 23 | Manual lock clears the remembered key |
 | 24 | "Until the browser closes" is rejected while remembering |
 | 25 | Turning remember off requires the password after restart |
+| 26 | Limit reminder is saved and stored encrypted |
+| 27 | Invalid reminder times are rejected |
+| 28 | Limit reminder can be cleared |
+| 29 | Reminder disappears by itself after the reset time |
+| 30 | Parser: header, body, embedded JSON, several windows; ordinary throttling ignored |
+| 31 | A 429 with a reset time marks the active account automatically |
+| 32 | A limit without a reset time is marked "time unknown" |
+| 33 | An unknown-time event never overwrites a known reset time |
+| 34 | Ordinary request throttling is ignored |
+| 35 | Content scripts can call only `limitHit`; the popup cannot; foreign origins rejected |
+| 36 | A limit hit while locked is applied after unlock |
+| 37 | Diagnostics are structure-only; limit data stays encrypted at rest |
+| 38 | Page hook passes responses through untouched and reports only same-origin `/api/` 429s |
+| 39 | Relay validates origin/source/shape and caps sizes |
+| 40 | Hours + minutes entry (including zero, negative and non-numeric input) |
+| 41 | Time-of-day alarm picks the next occurrence and rejects invalid times |
+| 42 | Duration parts and the `datetime-local` minimum |
 
 Run (copy `background.js` and `crypto-vault.js` next to the test file, or adjust the import path):
 
@@ -514,6 +564,7 @@ node tests/background.test.mjs
 
 - **Real claude.ai behavior:** session binding to factors beyond cookies, Cloudflare protection, and changes to `/api/...` endpoints.
 - **Real Chrome cookie semantics:** enforcement of `SameSite`, `__Host-`, partitioned cookies, and exact `remove/set` behavior.
+- **The real format of claude.ai's limit (429) responses**, which is undocumented; the parser is tested against plausible shapes only.
 - **User interface (DOM)**, visual experience, and RTL.
 - **Actual service worker lifecycle** (termination and restart).
 - **Independent security review.**
@@ -570,10 +621,13 @@ hopper/
 ├─ manifest.json
 ├─ background.js             # core logic
 ├─ crypto-vault.js           # Web Crypto
+├─ limit-parser.js           # 429 → reset time (pure functions)
+├─ time-utils.js             # alarm-style picker math (pure functions)
+├─ content/page-hook.js, content/relay.js   # limit-error reporting on claude.ai
 ├─ popup.html / popup.css / popup.js
 ├─ _locales/en|ar/messages.json
 ├─ icons/icon16|32|48|128.png
-├─ tests/background.test.mjs
+├─ tests/background.test.mjs, tests/content-scripts.test.mjs, tests/time-utils.test.mjs
 ├─ tools/make_icons.py       # icon generation (Pillow)
 ├─ docs/store-listing.md, docs/SUBMISSION-CHECKLIST.md
 ├─ README.md, PRIVACY.md, CHANGELOG.md, LICENSE, .gitignore
@@ -584,7 +638,7 @@ hopper/
 **Packaging for publication:**
 
 ```bash
-zip -r ../hopper-1.2.0.zip manifest.json background.js crypto-vault.js \
+zip -r ../hopper-1.4.1.zip manifest.json background.js crypto-vault.js \
     popup.html popup.css popup.js _locales icons
 ```
 
@@ -604,4 +658,4 @@ zip -r ../hopper-1.2.0.zip manifest.json background.js crypto-vault.js \
 
 ---
 
-*Last updated: 2026-10-05 — Version 1.2.0.*
+*Last updated: 2026-10-07 — Version 1.4.1.*

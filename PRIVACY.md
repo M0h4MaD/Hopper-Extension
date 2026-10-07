@@ -13,6 +13,8 @@ Only in `chrome.storage.local` on your device. Never in `chrome.storage.sync`. T
 ## What leaves your device
 **Nothing.** The extension makes no requests to any server except `https://claude.ai`, which it uses to (a) check whether the current session is valid and (b) read your own account name/email from claude.ai. No analytics, telemetry, ads, or third-party code. Cookie values are never logged.
 
+**Limit detection:** to notice usage limits, a small script on claude.ai looks only at HTTP 429 error responses that claude.ai sends to your own browser (status, `Retry-After` header, and up to 4,000 characters of the error body). It never changes requests or responses. The body is parsed locally for a reset time; only that time (encrypted, with the account) is kept. A structure-only record of the last such event (keys and types, no message text) is held in memory for the *Copy limit diagnostics* button and disappears when the browser closes.
+
 ## Your control
 - **Remove one account:** select it → *Remove*.
 - **Delete everything:** *Settings → Delete all data* (clears all extension storage and the device key). Uninstalling also removes all extension data.
@@ -37,6 +39,8 @@ Open an issue in the project repository.
 **أين:** في `chrome.storage.local` على جهازك فقط، ولا يُستخدم `chrome.storage.sync` أبدًا. وعند تفعيل خيار «البقاء مفتوحًا بعد إعادة التشغيل» (معطّل افتراضيًا) تُحفظ أيضًا نسخة من مفتاح الفتح مغلّفة بمفتاح جهاز غير قابل للتصدير، وتُحذف عند انتهاء مهلة الخمول أو الضغط على «قفل» أو إيقاف الخيار.
 
 **ما الذي يغادر جهازك:** لا شيء. لا طلبات إلا إلى `https://claude.ai` للتحقق من صلاحية الجلسة وقراءة اسم/بريد حسابك. لا تحليلات ولا تتبّع ولا إعلانات، ولا تُسجَّل قيم الكوكيز.
+
+**اكتشاف الحد:** لملاحظة بلوغ حد الاستخدام يطّلع سكربت صغير على claude.ai على استجابات الخطأ HTTP 429 فقط التي يرسلها claude.ai إلى متصفحك (الحالة، وترويسة `Retry-After`، وحتى 4000 حرف من نص الخطأ). ولا يغيّر أي طلب أو استجابة. يُحلَّل النص محليًا بحثًا عن وقت الإعادة ولا يُحفظ إلا هذا الوقت (مشفّرًا مع الحساب). وسجل بنيوي لآخر حالة (مفاتيح وأنواع دون أي نص رسائل) يبقى في الذاكرة لزر «نسخ تشخيص الحد» ويزول عند إغلاق المتصفح.
 
 **تحكّمك:** احذف حسابًا واحدًا من زر «حذف»، أو احذف كل شيء من *الإعدادات ← حذف كل البيانات*. إلغاء تثبيت الإضافة يحذف بياناتها أيضًا.
 

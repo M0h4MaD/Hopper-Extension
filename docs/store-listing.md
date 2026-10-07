@@ -13,6 +13,7 @@ Hopper lets you keep several of YOUR OWN claude.ai accounts (personal, work, tea
 • Click = instant switch and automatic tab reload
 • "+" adds an account; Hopper asks "Save this account?" once you've signed in
 • Rename, recolor, refresh session, remove
+• Limit tracking: when claude.ai reports a usage limit, the account is marked and a hover tooltip shows when it resets (or enter the time yourself)
 • Session expired? One click on "Sign in again" and the account updates itself
 • Shortcuts: Alt+Shift+A (open), Alt+Shift+Right/Left (cycle)
 • Arabic (RTL) and English; automatic light/dark
@@ -32,6 +33,7 @@ Unofficial. Not affiliated with, endorsed by, or sponsored by Anthropic. Use onl
 • النقر = تبديل فوري وإعادة تحميل التبويب تلقائيًا
 • زر «+» لإضافة حساب، ثم سؤال «حفظ هذا الحساب؟» بعد تسجيل الدخول
 • إعادة تسمية وتغيير لون وتحديث الجلسة وحذف
+• تتبّع الحد: عندما يُبلغ claude.ai ببلوغ حد الاستخدام يُعلَّم الحساب ويظهر موعد إعادة التعيين عند تمرير الفأرة (أو أدخل الوقت بنفسك)
 • انتهت الجلسة؟ نقرة على «تسجيل الدخول مجددًا» ويُحدَّث الحساب تلقائيًا
 • اختصارات: Alt+Shift+A للفتح، وAlt+Shift+Right/Left للتنقل
 • عربي (RTL) وإنجليزي، ووضع فاتح/داكن تلقائي
@@ -45,6 +47,7 @@ Switch between the user's own claude.ai accounts by saving and restoring each ac
 
 ## Permission justifications (one line each)
 - **cookies** — Read, save, remove and restore the claude.ai session cookies of the user's own accounts; this is the core switching mechanism.
+- **Content scripts on https://claude.ai/\*** — Detect the HTTP 429 usage-limit errors claude.ai returns, so the active account can be marked as limited and show when it resets. They look at nothing else, change nothing, and send nothing anywhere.
 - **storage** — Keep the encrypted account snapshots and settings in chrome.storage.local (and the unlocked key, memory-only, in chrome.storage.session).
 - *(No "tabs" permission is requested. Reloading claude.ai tabs and detecting sign-in uses the claude.ai host permission only.)*
 - **Host permission https://claude.ai/\*** — Required to access that site's cookies and to check session validity/account name through claude.ai itself; no other host is accessed.
@@ -52,6 +55,7 @@ Switch between the user's own claude.ai accounts by saving and restoring each ac
 
 ## Privacy practices tab
 - Data collected: *Authentication information* (session cookies), handled locally only.
+- *Website content:* the extension reads claude.ai's own HTTP 429 error responses locally to detect usage limits; only the parsed reset time is kept (encrypted on the device).
 - Not sold or transferred to third parties; not used for unrelated purposes; not used for creditworthiness.
 - Privacy policy URL: link to PRIVACY.md in the public repo (raw GitHub Pages URL).
 

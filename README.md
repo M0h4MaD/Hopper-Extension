@@ -12,6 +12,7 @@ Switch between your own claude.ai accounts in one click — no logging out and i
 - `+` adds an account: sign in, then confirm **Save this account?**
 - **Session expired?** Click **Sign in again** — after you sign in, the account updates itself
 - Rename · color · refresh session · remove
+- **Limit tracking:** when claude.ai tells you you've hit a usage limit, that account is marked automatically and hovering its chip shows when it resets (or set it yourself with an alarm-style picker: hours + minutes, time of day, or date)
 - Shortcuts: `Alt+Shift+A` open · `Alt+Shift+→/←` cycle accounts
 - Arabic (RTL) and English · automatic light/dark theme
 - Encrypted, local-only, no analytics
@@ -29,7 +30,7 @@ Switch between your own claude.ai accounts in one click — no logging out and i
 - Session cookies **and** account labels are encrypted with AES-256-GCM. The key comes from your master password (PBKDF2-SHA256, 600k iterations).
 - You type the password once per browser start. Every use renews an idle timer (default 4 h; 15 min · 1 h · 4 h · 1 day · 3 days · 1 week · until the browser closes).
 - Optional **Stay unlocked after restarting the browser** (off by default): convenient but weaker, see the warning in Settings.
-- Only permissions: `cookies`, `storage`, and `https://claude.ai/*`. Requests go only to claude.ai. Nothing is synced or sent anywhere.
+- Only permissions: `cookies`, `storage`, and `https://claude.ai/*`. Requests go only to claude.ai. Nothing is synced or sent anywhere. A small script on claude.ai watches only for HTTP 429 limit errors (details in [PRIVACY.md](PRIVACY.md)).
 - A saved session is as sensitive as a password. See [PRIVACY.md](PRIVACY.md) and the full threat model in [docs/ARCHITECTURE.en.md](docs/ARCHITECTURE.en.md).
 
 ## Documentation
